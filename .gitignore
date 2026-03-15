@@ -1,0 +1,5 @@
+.DS_Store
+build/
+dist/
+.upstream-eurorack/
+.upstream-move-everything/

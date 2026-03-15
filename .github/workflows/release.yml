@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          python3 - "$VERSION" <<'PY'
+          import sys
+          import json
+          p = "src/module.json"
+          with open(p, "r", encoding="utf-8") as f:
+              data = json.load(f)
+          data["version"] = sys.argv[1]
+          with open(p, "w", encoding="utf-8") as f:
+              json.dump(data, f, indent=2)
+              f.write("\n")
+          PY
+
+      - name: Build with Docker
+        run: |
+          docker build -t move-anything-builder -f scripts/Dockerfile .
+          docker run --rm -v "$PWD:/build" -w /build move-anything-builder ./scripts/build.sh
+
+      - name: Verify build
+        run: |
+          ls -la dist/freak-module.tar.gz
+          tar -tzvf dist/freak-module.tar.gz | head -20
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/freak-module.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit release.json
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          git fetch origin main
+          git checkout -f main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          cat > release.json << EOF
+          {
+            "version": "${VERSION}",
+            "download_url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/freak-module.tar.gz"
+          }
+          EOF
+          git add release.json
+          if git diff --cached --quiet; then
+            echo "release.json already up to date"
+          else
+            git commit -m "chore: update release.json for ${{ github.ref_name }}"
+            git push origin main
+          fi

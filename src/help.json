@@ -1,0 +1,98 @@
+{
+  "title": "Freak",
+  "children": [
+    {
+      "title": "Overview",
+      "lines": [
+        "MicroFreak-inspired",
+        "Plaits-based synth",
+        "for Move Anything.",
+        "",
+        "Core controls are",
+        "top-level params",
+        "with destination",
+        "mod pages."
+      ]
+    },
+    {
+      "title": "Engine",
+      "lines": [
+        "Model: Plaits",
+        "engine name",
+        "Harmonics: macro",
+        "Timbre: macro",
+        "Morph: macro",
+        "FM Amount: depth",
+        "Pitch: semitone",
+        "offset"
+      ]
+    },
+    {
+      "title": "LPG",
+      "lines": [
+        "Decay: vactrol",
+        "response time",
+        "Color: amp/filter",
+        "balance",
+        "Retrig: strike on",
+        "note on"
+      ]
+    },
+    {
+      "title": "Modulation",
+      "lines": [
+        "Destinations:",
+        " Pitch/Harmonics/",
+        " Timbre/Morph/FM",
+        "",
+        "Sources per dest:",
+        " LFO, Env, Cycle,",
+        " Random, Velocity,",
+        " Poly Aftertouch",
+        "",
+        "Amount 0 = no-op."
+      ]
+    },
+    {
+      "title": "Mod Sources",
+      "lines": [
+        "LFO: shape/rate/",
+        " sync/retrig/phase",
+        "Envelope: ADSR",
+        "Cycling Env:",
+        " attack/decay/",
+        " shape/bipolar",
+        "Random: mode/rate/",
+        " sync/slew/retrig",
+        "Velocity curve",
+        "Poly AT curve +",
+        "smoothing"
+      ]
+    },
+    {
+      "title": "Voice",
+      "lines": [
+        "Voice Mode:",
+        " mono/poly/legato",
+        "Polyphony + Unison",
+        "are budgeted to",
+        "max 8 render voices",
+        "Detune + Spread",
+        "Glide time"
+      ]
+    },
+    {
+      "title": "Disclaimer",
+      "lines": [
+        "Uses Mutable",
+        "Instruments Plaits",
+        "source under MIT",
+        "license.",
+        "",
+        "Developed with",
+        "AI assistance and",
+        "human review."
+      ]
+    }
+  ]
+}
