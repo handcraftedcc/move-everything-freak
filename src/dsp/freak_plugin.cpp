@@ -125,6 +125,34 @@ static const char *const kLfoShapeNames[] = {"sine", "triangle", "saw", "square"
 static const char *const kCycleShapeNames[] = {"linear", "exponential", "logarithmic"};
 static const char *const kRandomModeNames[] = {"sample_hold", "smooth", "drift"};
 static const char *const kVoiceModeNames[] = {"mono", "poly", "mono_legato"};
+static const float kSyncReferenceBpm = 120.0f;
+static const char *const kSyncRateNames[] = {
+    "16 bars",
+    "8 bars",
+    "4 bars",
+    "2 bars",
+    "1 bar",
+    "1/2",
+    "1/4",
+    "1/8",
+    "1/16",
+    "1/32",
+    "1/64"
+};
+static const float kSyncRateBars[] = {
+    16.0f,
+    8.0f,
+    4.0f,
+    2.0f,
+    1.0f,
+    0.5f,
+    0.25f,
+    0.125f,
+    0.0625f,
+    0.03125f,
+    0.015625f
+};
+constexpr int kSyncRateCount = (int)(sizeof(kSyncRateNames) / sizeof(kSyncRateNames[0]));
 static const char *const kModelNames[] = {
     "va_vcf",
     "phase_distortion",
@@ -151,6 +179,36 @@ static const char *const kModelNames[] = {
     "analog_snare_drum",
     "analog_hi_hat"
 };
+
+static float sync_rate_hz_from_index(int index, float bpm) {
+    int idx = clampi(index, 0, kSyncRateCount - 1);
+    float clamped_bpm = clampf(bpm, 20.0f, 300.0f);
+    float bar_seconds = 240.0f / clamped_bpm;
+    float cycle_seconds = kSyncRateBars[idx] * bar_seconds;
+    if (cycle_seconds <= 1e-6f) cycle_seconds = 1e-6f;
+    return 1.0f / cycle_seconds;
+}
+
+static int nearest_sync_rate_index(float hz, float bpm) {
+    float clamped = clampf(hz, 0.01f, 40.0f);
+    int best = 0;
+    float best_err = 1e9f;
+    for (int i = 0; i < kSyncRateCount; ++i) {
+        float ref = sync_rate_hz_from_index(i, bpm);
+        float err = fabsf(ref - clamped);
+        if (err < best_err) {
+            best_err = err;
+            best = i;
+        }
+    }
+    return best;
+}
+
+static int write_sync_rate_text(float hz, char *buf, int buf_len) {
+    if (!buf || buf_len <= 0) return -1;
+    int idx = nearest_sync_rate_index(hz, kSyncReferenceBpm);
+    return snprintf(buf, buf_len, "%s", kSyncRateNames[idx]);
+}
 
 static int write_enum_text(const char *key, int value, char *buf, int buf_len) {
     if (!key || !buf || buf_len <= 0) return -1;
@@ -356,6 +414,16 @@ static int set_param_internal(freak_instance_t *inst, const char *key, const cha
             inst->params.voice_mode = clampi(iv, 0, 2);
             return 1;
         }
+        if (strcmp(key, "lfo_rate") == 0) {
+            if (!parse_enum_or_int(val, kSyncRateNames, kSyncRateCount, &iv)) return 0;
+            inst->params.lfo_rate = sync_rate_hz_from_index(iv, kSyncReferenceBpm);
+            return 1;
+        }
+        if (strcmp(key, "random_rate") == 0) {
+            if (!parse_enum_or_int(val, kSyncRateNames, kSyncRateCount, &iv)) return 0;
+            inst->params.random_rate = sync_rate_hz_from_index(iv, kSyncReferenceBpm);
+            return 1;
+        }
         if (strcmp(key, "lfo_sync") == 0) {
             if (!parse_boolish(val, &iv)) return 0;
             inst->params.lfo_sync = iv;
@@ -445,26 +513,44 @@ static int set_param_internal(freak_instance_t *inst, const char *key, const cha
     SET_FLOAT_FIELD("fm_mod_poly_aftertouch_amt", fm_mod.poly_aftertouch, -1.0f, 1.0f);
 
     SET_INT_FIELD("lfo_shape", lfo_shape, 0, 5);
-    SET_FLOAT_FIELD("lfo_rate", lfo_rate, 0.01f, 40.0f);
+    if (strcmp(key, "lfo_rate") == 0) {
+        float rate = clampf(fv, 0.01f, 40.0f);
+        if (inst->params.lfo_sync) {
+            bool looks_like_index = fabsf((float)iv - fv) < 1e-6f && iv >= 0 && iv < kSyncRateCount;
+            int idx = looks_like_index ? iv : nearest_sync_rate_index(rate, kSyncReferenceBpm);
+            rate = sync_rate_hz_from_index(idx, kSyncReferenceBpm);
+        }
+        inst->params.lfo_rate = rate;
+        return 1;
+    }
     SET_INT_FIELD("lfo_sync", lfo_sync, 0, 1);
     SET_INT_FIELD("lfo_retrig", lfo_retrig, 0, 1);
     SET_FLOAT_FIELD("lfo_phase", lfo_phase, 0.0f, 1.0f);
 
-    SET_FLOAT_FIELD("env_attack_ms", env_attack_ms, 0.0f, 5000.0f);
-    SET_FLOAT_FIELD("env_decay_ms", env_decay_ms, 0.0f, 5000.0f);
+    SET_INT_FIELD("env_attack_ms", env_attack_ms, 0, 5000);
+    SET_INT_FIELD("env_decay_ms", env_decay_ms, 0, 5000);
     SET_FLOAT_FIELD("env_sustain", env_sustain, 0.0f, 1.0f);
-    SET_FLOAT_FIELD("env_release_ms", env_release_ms, 0.0f, 5000.0f);
+    SET_INT_FIELD("env_release_ms", env_release_ms, 0, 5000);
     SET_INT_FIELD("env_retrig", env_retrig, 0, 1);
 
-    SET_FLOAT_FIELD("cycle_attack_ms", cycle_attack_ms, 1.0f, 5000.0f);
-    SET_FLOAT_FIELD("cycle_decay_ms", cycle_decay_ms, 1.0f, 5000.0f);
+    SET_INT_FIELD("cycle_attack_ms", cycle_attack_ms, 1, 5000);
+    SET_INT_FIELD("cycle_decay_ms", cycle_decay_ms, 1, 5000);
     SET_INT_FIELD("cycle_shape", cycle_shape, 0, 2);
     SET_INT_FIELD("cycle_sync", cycle_sync, 0, 1);
     SET_INT_FIELD("cycle_retrig", cycle_retrig, 0, 1);
     SET_INT_FIELD("cycle_bipolar", cycle_bipolar, 0, 1);
 
     SET_INT_FIELD("random_mode", random_mode, 0, 2);
-    SET_FLOAT_FIELD("random_rate", random_rate, 0.01f, 40.0f);
+    if (strcmp(key, "random_rate") == 0) {
+        float rate = clampf(fv, 0.01f, 40.0f);
+        if (inst->params.random_sync) {
+            bool looks_like_index = fabsf((float)iv - fv) < 1e-6f && iv >= 0 && iv < kSyncRateCount;
+            int idx = looks_like_index ? iv : nearest_sync_rate_index(rate, kSyncReferenceBpm);
+            rate = sync_rate_hz_from_index(idx, kSyncReferenceBpm);
+        }
+        inst->params.random_rate = rate;
+        return 1;
+    }
     SET_INT_FIELD("random_sync", random_sync, 0, 1);
     SET_FLOAT_FIELD("random_slew", random_slew, 0.0f, 1.0f);
     SET_INT_FIELD("random_retrig", random_retrig, 0, 1);
@@ -535,26 +621,32 @@ static int get_param_internal(const freak_instance_t *inst, const char *key, cha
     GET_FLOAT_FIELD("fm_mod_poly_aftertouch_amt", fm_mod.poly_aftertouch);
 
     GET_ENUM_FIELD("lfo_shape", lfo_shape);
-    GET_FLOAT_FIELD("lfo_rate", lfo_rate);
+    if (strcmp(key, "lfo_rate") == 0) {
+        if (inst->params.lfo_sync) return write_sync_rate_text(inst->params.lfo_rate, buf, buf_len);
+        return snprintf(buf, buf_len, "%.6g", inst->params.lfo_rate);
+    }
     GET_ENUM_FIELD("lfo_sync", lfo_sync);
     GET_ENUM_FIELD("lfo_retrig", lfo_retrig);
     GET_FLOAT_FIELD("lfo_phase", lfo_phase);
 
-    GET_FLOAT_FIELD("env_attack_ms", env_attack_ms);
-    GET_FLOAT_FIELD("env_decay_ms", env_decay_ms);
+    GET_INT_FIELD("env_attack_ms", env_attack_ms);
+    GET_INT_FIELD("env_decay_ms", env_decay_ms);
     GET_FLOAT_FIELD("env_sustain", env_sustain);
-    GET_FLOAT_FIELD("env_release_ms", env_release_ms);
+    GET_INT_FIELD("env_release_ms", env_release_ms);
     GET_ENUM_FIELD("env_retrig", env_retrig);
 
-    GET_FLOAT_FIELD("cycle_attack_ms", cycle_attack_ms);
-    GET_FLOAT_FIELD("cycle_decay_ms", cycle_decay_ms);
+    GET_INT_FIELD("cycle_attack_ms", cycle_attack_ms);
+    GET_INT_FIELD("cycle_decay_ms", cycle_decay_ms);
     GET_ENUM_FIELD("cycle_shape", cycle_shape);
     GET_ENUM_FIELD("cycle_sync", cycle_sync);
     GET_ENUM_FIELD("cycle_retrig", cycle_retrig);
     GET_ENUM_FIELD("cycle_bipolar", cycle_bipolar);
 
     GET_ENUM_FIELD("random_mode", random_mode);
-    GET_FLOAT_FIELD("random_rate", random_rate);
+    if (strcmp(key, "random_rate") == 0) {
+        if (inst->params.random_sync) return write_sync_rate_text(inst->params.random_rate, buf, buf_len);
+        return snprintf(buf, buf_len, "%.6g", inst->params.random_rate);
+    }
     GET_ENUM_FIELD("random_sync", random_sync);
     GET_FLOAT_FIELD("random_slew", random_slew);
     GET_ENUM_FIELD("random_retrig", random_retrig);

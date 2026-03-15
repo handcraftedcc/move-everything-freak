@@ -134,6 +134,28 @@ if glide_meta.get("type") != "int":
 if glide_meta.get("step") != 5:
     fail("glide_ms step must be 5ms")
 
+for key, min_value in [
+    ("env_attack_ms", 0),
+    ("env_decay_ms", 0),
+    ("env_release_ms", 0),
+    ("cycle_attack_ms", 1),
+    ("cycle_decay_ms", 1),
+]:
+    meta = chain_params.get(key, {})
+    if meta.get("type") != "int":
+        fail(f"{key} must be int")
+    if meta.get("step") != 1:
+        fail(f"{key} step must be 1ms")
+    if meta.get("min") != min_value:
+        fail(f"{key} min must be {min_value}")
+
+lfo_rate_meta = chain_params.get("lfo_rate", {})
+if lfo_rate_meta.get("type") != "float":
+    fail("lfo_rate type must stay float for continuous unsynced use")
+random_rate_meta = chain_params.get("random_rate", {})
+if random_rate_meta.get("type") != "float":
+    fail("random_rate type must stay float for continuous unsynced use")
+
 lpg_level = levels.get("lpg", {})
 lpg_params = lpg_level.get("params", [])
 if "pitch" not in lpg_params:

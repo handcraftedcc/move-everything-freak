@@ -58,12 +58,16 @@
       "lines": [
         "LFO: shape/rate/",
         " sync/retrig/phase",
+        " sync rate: 16 bars",
+        " .. 1/64",
         "Envelope: ADSR",
         "Cycling Env:",
         " attack/decay/",
         " shape/bipolar",
         "Random: mode/rate/",
         " sync/slew/retrig",
+        " sync rate: 16 bars",
+        " .. 1/64",
         "Velocity curve",
         "Poly AT curve +",
         "smoothing"

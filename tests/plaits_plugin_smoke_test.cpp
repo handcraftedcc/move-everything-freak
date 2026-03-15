@@ -61,6 +61,8 @@ int main() {
     api->set_param(inst, "lfo_shape", "saw");
     api->set_param(inst, "glide_ms", "127");
     api->set_param(inst, "pitch_mod_lfo_amt", "12");
+    api->set_param(inst, "env_attack_ms", "123.7");
+    api->set_param(inst, "cycle_attack_ms", "0");
 
     char model_buf[32];
     memset(model_buf, 0, sizeof(model_buf));
@@ -109,6 +111,44 @@ int main() {
     }
     if (strcmp(pitch_mod_buf, "12") != 0) {
         fail("pitch_mod_lfo_amt should support wider pitch range values");
+    }
+
+    char attack_buf[32];
+    memset(attack_buf, 0, sizeof(attack_buf));
+    if (api->get_param(inst, "env_attack_ms", attack_buf, (int)sizeof(attack_buf)) < 0) {
+        fail("get_param(env_attack_ms) failed");
+    }
+    if (strcmp(attack_buf, "124") != 0) {
+        fail("env_attack_ms should be integer milliseconds");
+    }
+
+    char cycle_attack_buf[32];
+    memset(cycle_attack_buf, 0, sizeof(cycle_attack_buf));
+    if (api->get_param(inst, "cycle_attack_ms", cycle_attack_buf, (int)sizeof(cycle_attack_buf)) < 0) {
+        fail("get_param(cycle_attack_ms) failed");
+    }
+    if (strcmp(cycle_attack_buf, "1") != 0) {
+        fail("cycle_attack_ms should clamp to integer minimum of 1ms");
+    }
+
+    api->set_param(inst, "lfo_sync", "on");
+    api->set_param(inst, "lfo_rate", "0");
+    char lfo_rate_buf[32];
+    memset(lfo_rate_buf, 0, sizeof(lfo_rate_buf));
+    if (api->get_param(inst, "lfo_rate", lfo_rate_buf, (int)sizeof(lfo_rate_buf)) < 0) {
+        fail("get_param(lfo_rate) failed");
+    }
+    if (strcmp(lfo_rate_buf, "16 bars") != 0) {
+        fail("lfo_rate should show synced division label when sync is on");
+    }
+
+    api->set_param(inst, "lfo_rate", "1/64");
+    memset(lfo_rate_buf, 0, sizeof(lfo_rate_buf));
+    if (api->get_param(inst, "lfo_rate", lfo_rate_buf, (int)sizeof(lfo_rate_buf)) < 0) {
+        fail("get_param(lfo_rate) failed after enum text set");
+    }
+    if (strcmp(lfo_rate_buf, "1/64") != 0) {
+        fail("lfo_rate should accept and return synced fraction labels");
     }
 
     char hierarchy_buf[8192];

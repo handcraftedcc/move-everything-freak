@@ -99,6 +99,47 @@ constexpr int kVoiceRamBytes = 16384;
 constexpr int kChunkFrames = 12;
 constexpr int kMaxTriggerBlocks = 3;
 constexpr float kFixedVoiceMixGain = 0.3535533905932738f;  // 1/sqrt(8)
+constexpr float kSyncReferenceBpm = 120.0f;
+
+static const float kSyncRateBars[] = {
+    16.0f,
+    8.0f,
+    4.0f,
+    2.0f,
+    1.0f,
+    0.5f,
+    0.25f,
+    0.125f,
+    0.0625f,
+    0.03125f,
+    0.015625f
+};
+
+constexpr int kSyncRateCount = (int)(sizeof(kSyncRateBars) / sizeof(kSyncRateBars[0]));
+
+static float sync_rate_hz_from_index(int index, float bpm) {
+    int idx = clampi(index, 0, kSyncRateCount - 1);
+    float clamped_bpm = clampf(bpm, 20.0f, 300.0f);
+    float bar_seconds = 240.0f / clamped_bpm;
+    float cycle_seconds = kSyncRateBars[idx] * bar_seconds;
+    if (cycle_seconds <= 1e-6f) cycle_seconds = 1e-6f;
+    return 1.0f / cycle_seconds;
+}
+
+static float quantize_sync_rate_hz(float hz, float bpm) {
+    float clamped = clampf(hz, 0.01f, 40.0f);
+    int best = 0;
+    float best_err = 1e9f;
+    for (int i = 0; i < kSyncRateCount; ++i) {
+        float ref = sync_rate_hz_from_index(i, bpm);
+        float err = fabsf(ref - clamped);
+        if (err < best_err) {
+            best_err = err;
+            best = i;
+        }
+    }
+    return sync_rate_hz_from_index(best, bpm);
+}
 
 static float eval_lfo(int shape,
                       float phase,
@@ -187,14 +228,14 @@ void ppf_default_params(ppf_params_t *params) {
     params->lfo_retrig = 0;
     params->lfo_phase = 0.0f;
 
-    params->env_attack_ms = 5.0f;
-    params->env_decay_ms = 200.0f;
+    params->env_attack_ms = 5;
+    params->env_decay_ms = 200;
     params->env_sustain = 0.0f;
-    params->env_release_ms = 300.0f;
+    params->env_release_ms = 300;
     params->env_retrig = 1;
 
-    params->cycle_attack_ms = 300.0f;
-    params->cycle_decay_ms = 300.0f;
+    params->cycle_attack_ms = 300;
+    params->cycle_decay_ms = 300;
     params->cycle_shape = PPF_CYCLE_LINEAR;
     params->cycle_sync = 0;
     params->cycle_retrig = 0;
@@ -354,8 +395,15 @@ void ppf_engine_t::set_params(const ppf_params_t &params) {
     params_.unison = clampi(params_.unison, 1, PPF_MAX_VOICES);
     params_.voice_mode = clampi(params_.voice_mode, 0, 2);
     params_.lfo_shape = clampi(params_.lfo_shape, 0, 5);
+    params_.lfo_rate = clampf(params_.lfo_rate, 0.01f, 40.0f);
     params_.cycle_shape = clampi(params_.cycle_shape, 0, 2);
     params_.random_mode = clampi(params_.random_mode, 0, 2);
+    params_.random_rate = clampf(params_.random_rate, 0.01f, 40.0f);
+    params_.env_attack_ms = clampi(params_.env_attack_ms, 0, 5000);
+    params_.env_decay_ms = clampi(params_.env_decay_ms, 0, 5000);
+    params_.env_release_ms = clampi(params_.env_release_ms, 0, 5000);
+    params_.cycle_attack_ms = clampi(params_.cycle_attack_ms, 1, 5000);
+    params_.cycle_decay_ms = clampi(params_.cycle_decay_ms, 1, 5000);
     params_.env_sustain = clampf(params_.env_sustain, 0.0f, 1.0f);
     params_.velocity_curve = clampf(params_.velocity_curve, 0.1f, 4.0f);
     params_.poly_aftertouch_curve = clampf(params_.poly_aftertouch_curve, 0.1f, 4.0f);
@@ -475,6 +523,9 @@ void ppf_engine_t::render(float *out_l, float *out_r, int frames) {
 
     int budget = impl_->active_voice_budget(params_);
     float lfo_rate = clampf(params_.lfo_rate, 0.01f, 40.0f);
+    if (params_.lfo_sync) {
+        lfo_rate = quantize_sync_rate_hz(lfo_rate, kSyncReferenceBpm);
+    }
     float lfo_inc = lfo_rate / (float)PPF_SAMPLE_RATE;
 
     for (int frame_pos = 0; frame_pos < frames; frame_pos += kChunkFrames) {
@@ -522,9 +573,9 @@ void ppf_engine_t::render(float *out_l, float *out_r, int frames) {
                 return clampf((float)chunk / samples, 0.0f, 1.0f);
             };
 
-            float atk_step = step_time(std::max(1.0f, params_.env_attack_ms));
-            float dec_step = step_time(std::max(1.0f, params_.env_decay_ms));
-            float rel_step = step_time(std::max(1.0f, params_.env_release_ms));
+            float atk_step = step_time((float)std::max(1, params_.env_attack_ms));
+            float dec_step = step_time((float)std::max(1, params_.env_decay_ms));
+            float rel_step = step_time((float)std::max(1, params_.env_release_ms));
 
             switch (v.env_stage) {
                 case ENV_ATTACK:
@@ -557,8 +608,8 @@ void ppf_engine_t::render(float *out_l, float *out_r, int frames) {
                     break;
             }
 
-            float cycle_up = step_time(std::max(1.0f, params_.cycle_attack_ms));
-            float cycle_dn = step_time(std::max(1.0f, params_.cycle_decay_ms));
+            float cycle_up = step_time((float)std::max(1, params_.cycle_attack_ms));
+            float cycle_dn = step_time((float)std::max(1, params_.cycle_decay_ms));
             if (params_.cycle_retrig && v.trigger_blocks == kMaxTriggerBlocks) {
                 v.cycle_value = 0.0f;
                 v.cycle_dir = 1;
@@ -578,6 +629,9 @@ void ppf_engine_t::render(float *out_l, float *out_r, int frames) {
             }
 
             float rand_rate = clampf(params_.random_rate, 0.01f, 40.0f);
+            if (params_.random_sync) {
+                rand_rate = quantize_sync_rate_hz(rand_rate, kSyncReferenceBpm);
+            }
             v.random_phase += rand_rate * ((float)chunk / (float)PPF_SAMPLE_RATE);
             while (v.random_phase >= 1.0f) {
                 v.random_phase -= 1.0f;

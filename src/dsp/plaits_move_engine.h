@@ -73,14 +73,14 @@ typedef struct {
     int lfo_retrig;
     float lfo_phase;
 
-    float env_attack_ms;
-    float env_decay_ms;
+    int env_attack_ms;
+    int env_decay_ms;
     float env_sustain;
-    float env_release_ms;
+    int env_release_ms;
     int env_retrig;
 
-    float cycle_attack_ms;
-    float cycle_decay_ms;
+    int cycle_attack_ms;
+    int cycle_decay_ms;
     int cycle_shape;
     int cycle_sync;
     int cycle_retrig;
