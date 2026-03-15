@@ -41,6 +41,19 @@
       ]
     },
     {
+      "title": "Filter",
+      "lines": [
+        "Global multimode",
+        "post filter",
+        "Mode: LP/BP/HP",
+        "Cutoff: 0..1",
+        "Resonance: amt",
+        "Sits above",
+        "Mod Sources menu",
+        "in root layout"
+      ]
+    },
+    {
       "title": "Modulation",
       "lines": [
         "Destinations:",

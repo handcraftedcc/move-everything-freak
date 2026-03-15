@@ -59,6 +59,9 @@ int main() {
     api->set_param(inst, "fm_amount", "0.2");
     api->set_param(inst, "voice_mode", "poly");
     api->set_param(inst, "lfo_shape", "saw");
+    api->set_param(inst, "filter_mode", "bp");
+    api->set_param(inst, "filter_cutoff", "0.37");
+    api->set_param(inst, "filter_resonance", "0.61");
     api->set_param(inst, "glide_ms", "127");
     api->set_param(inst, "pitch_mod_lfo_amt", "12");
     api->set_param(inst, "color_mod_lfo_amt", "0.5");
@@ -89,6 +92,32 @@ int main() {
     }
     if (strcmp(enum_buf, "saw") != 0) {
         fail("lfo_shape should return enum text");
+    }
+
+    memset(enum_buf, 0, sizeof(enum_buf));
+    if (api->get_param(inst, "filter_mode", enum_buf, (int)sizeof(enum_buf)) < 0) {
+        fail("get_param(filter_mode) failed");
+    }
+    if (strcmp(enum_buf, "bp") != 0) {
+        fail("filter_mode should return enum text");
+    }
+
+    char filter_cutoff_buf[32];
+    memset(filter_cutoff_buf, 0, sizeof(filter_cutoff_buf));
+    if (api->get_param(inst, "filter_cutoff", filter_cutoff_buf, (int)sizeof(filter_cutoff_buf)) < 0) {
+        fail("get_param(filter_cutoff) failed");
+    }
+    if (strcmp(filter_cutoff_buf, "0.37") != 0) {
+        fail("filter_cutoff should roundtrip as float");
+    }
+
+    char filter_res_buf[32];
+    memset(filter_res_buf, 0, sizeof(filter_res_buf));
+    if (api->get_param(inst, "filter_resonance", filter_res_buf, (int)sizeof(filter_res_buf)) < 0) {
+        fail("get_param(filter_resonance) failed");
+    }
+    if (strcmp(filter_res_buf, "0.61") != 0) {
+        fail("filter_resonance should roundtrip as float");
     }
 
     memset(enum_buf, 0, sizeof(enum_buf));

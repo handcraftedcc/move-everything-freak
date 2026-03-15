@@ -31,6 +31,9 @@ required_keys = [
     "timbre",
     "morph",
     "fm_amount",
+    "filter_mode",
+    "filter_cutoff",
+    "filter_resonance",
     "lpg_decay",
     "lpg_color",
     "voice_mode",
@@ -82,8 +85,13 @@ labels = [e.get("label") for e in entries if isinstance(e, dict)]
 for label in ["Pitch Mod", "Harmonics Mod", "Timbre Mod", "Morph Mod", "FM Mod", "Color Mod"]:
     if label not in labels:
         fail(f"missing root submenu: {label}")
+if "Filter" not in labels:
+    fail("missing root submenu: Filter")
 if "LPG" in labels:
     fail("LPG should not be a submenu")
+
+if labels.index("Filter") > labels.index("Mod Sources"):
+    fail("Filter submenu must appear above Mod Sources")
 
 root_knobs = root.get("knobs", [])
 expected_root_knobs = [
@@ -173,6 +181,24 @@ if "poly_aftertouch_smoothing" in chain_params:
 poly_at_level = levels.get("poly_aftertouch", {})
 if poly_at_level.get("params") != ["poly_aftertouch_curve"]:
     fail("poly_aftertouch level must only expose poly_aftertouch_curve")
+
+filter_mode_meta = chain_params.get("filter_mode", {})
+if filter_mode_meta.get("type") != "enum":
+    fail("filter_mode must be enum")
+filter_mode_opts = filter_mode_meta.get("options", [])
+if set(filter_mode_opts) != {"lp", "bp", "hp"}:
+    fail("filter_mode enum must expose lp/bp/hp")
+
+for filter_key in ["filter_cutoff", "filter_resonance"]:
+    meta = chain_params.get(filter_key, {})
+    if meta.get("type") != "float":
+        fail(f"{filter_key} must be float")
+    if meta.get("min") != 0.0 or meta.get("max") != 1.0:
+        fail(f"{filter_key} range must be 0..1")
+
+filter_level = levels.get("filter", {})
+if filter_level.get("params") != ["filter_mode", "filter_cutoff", "filter_resonance"]:
+    fail("filter level must expose mode, cutoff, resonance")
 
 def level_param_keys(level_name: str):
     level = levels.get(level_name, {})

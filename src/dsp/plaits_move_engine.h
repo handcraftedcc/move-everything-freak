@@ -72,6 +72,9 @@ typedef struct {
     float timbre;
     float morph;
     float fm_amount;
+    int filter_mode;
+    float filter_cutoff;
+    float filter_resonance;
 
     float lpg_decay;
     float lpg_color;

@@ -125,6 +125,7 @@ static const char *const kLfoShapeNames[] = {"sine", "triangle", "saw", "square"
 static const char *const kCycleShapeNames[] = {"linear", "exponential", "logarithmic"};
 static const char *const kRandomModeNames[] = {"sample_hold", "smooth", "drift"};
 static const char *const kVoiceModeNames[] = {"mono", "poly", "mono_legato"};
+static const char *const kFilterModeNames[] = {"lp", "bp", "hp"};
 static const float kSyncReferenceBpm = 120.0f;
 static const char *const kSyncRateNames[] = {
     "16 bars",
@@ -229,6 +230,9 @@ static int write_enum_text(const char *key, int value, char *buf, int buf_len) {
         count = 3;
     } else if (strcmp(key, "voice_mode") == 0) {
         names = kVoiceModeNames;
+        count = 3;
+    } else if (strcmp(key, "filter_mode") == 0) {
+        names = kFilterModeNames;
         count = 3;
     } else if (strcmp(key, "lfo_sync") == 0 ||
                strcmp(key, "lfo_retrig") == 0 ||
@@ -414,6 +418,11 @@ static int set_param_internal(freak_instance_t *inst, const char *key, const cha
             inst->params.voice_mode = clampi(iv, 0, 2);
             return 1;
         }
+        if (strcmp(key, "filter_mode") == 0) {
+            if (!parse_enum_or_int(val, kFilterModeNames, 3, &iv)) return 0;
+            inst->params.filter_mode = clampi(iv, 0, 2);
+            return 1;
+        }
         if (strcmp(key, "lfo_rate") == 0) {
             if (!parse_enum_or_int(val, kSyncRateNames, kSyncRateCount, &iv)) return 0;
             inst->params.lfo_rate = sync_rate_hz_from_index(iv, kSyncReferenceBpm);
@@ -474,6 +483,9 @@ static int set_param_internal(freak_instance_t *inst, const char *key, const cha
     SET_FLOAT_FIELD("timbre", timbre, 0.0f, 1.0f);
     SET_FLOAT_FIELD("morph", morph, 0.0f, 1.0f);
     SET_FLOAT_FIELD("fm_amount", fm_amount, 0.0f, 1.0f);
+    SET_INT_FIELD("filter_mode", filter_mode, 0, 2);
+    SET_FLOAT_FIELD("filter_cutoff", filter_cutoff, 0.0f, 1.0f);
+    SET_FLOAT_FIELD("filter_resonance", filter_resonance, 0.0f, 1.0f);
     SET_FLOAT_FIELD("lpg_decay", lpg_decay, 0.0f, 1.0f);
     SET_FLOAT_FIELD("lpg_color", lpg_color, 0.0f, 1.0f);
 
@@ -588,6 +600,9 @@ static int get_param_internal(const freak_instance_t *inst, const char *key, cha
     GET_FLOAT_FIELD("timbre", timbre);
     GET_FLOAT_FIELD("morph", morph);
     GET_FLOAT_FIELD("fm_amount", fm_amount);
+    GET_ENUM_FIELD("filter_mode", filter_mode);
+    GET_FLOAT_FIELD("filter_cutoff", filter_cutoff);
+    GET_FLOAT_FIELD("filter_resonance", filter_resonance);
     GET_FLOAT_FIELD("lpg_decay", lpg_decay);
     GET_FLOAT_FIELD("lpg_color", lpg_color);
 

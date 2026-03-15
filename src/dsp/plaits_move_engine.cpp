@@ -87,6 +87,12 @@ enum {
 };
 
 enum {
+    PPF_FILTER_LP = 0,
+    PPF_FILTER_BP = 1,
+    PPF_FILTER_HP = 2
+};
+
+enum {
     ENV_OFF = 0,
     ENV_ATTACK = 1,
     ENV_DECAY = 2,
@@ -219,6 +225,90 @@ struct GlobalModState {
     float lfo_rand_b;
 };
 
+struct FilterState {
+    float z1_l;
+    float z2_l;
+    float z1_r;
+    float z2_r;
+};
+
+struct FilterCoefficients {
+    float b0;
+    float b1;
+    float b2;
+    float a1;
+    float a2;
+    bool bypass;
+};
+
+static inline FilterCoefficients make_filter_coefficients(int mode,
+                                                          float cutoff,
+                                                          float resonance) {
+    FilterCoefficients c{};
+    c.b0 = 1.0f;
+    c.b1 = 0.0f;
+    c.b2 = 0.0f;
+    c.a1 = 0.0f;
+    c.a2 = 0.0f;
+    c.bypass = false;
+
+    float cutoff_norm = clampf(cutoff, 0.0f, 1.0f);
+    float resonance_norm = clampf(resonance, 0.0f, 1.0f);
+    if (mode == PPF_FILTER_LP && cutoff_norm >= 0.999f && resonance_norm <= 1e-4f) {
+        c.bypass = true;
+        return c;
+    }
+
+    float hz = 20.0f * powf(1000.0f, cutoff_norm);
+    hz = clampf(hz, 20.0f, 18000.0f);
+    float q = 0.5f + resonance_norm * 19.5f;
+
+    float omega = 2.0f * 3.14159265359f * hz / (float)PPF_SAMPLE_RATE;
+    float sn = sinf(omega);
+    float cs = cosf(omega);
+    float alpha = sn / (2.0f * q);
+
+    float b0 = 0.0f;
+    float b1 = 0.0f;
+    float b2 = 0.0f;
+    float a0 = 1.0f + alpha;
+    float a1 = -2.0f * cs;
+    float a2 = 1.0f - alpha;
+
+    if (mode == PPF_FILTER_HP) {
+        b0 = (1.0f + cs) * 0.5f;
+        b1 = -(1.0f + cs);
+        b2 = (1.0f + cs) * 0.5f;
+    } else if (mode == PPF_FILTER_BP) {
+        b0 = sn * 0.5f;
+        b1 = 0.0f;
+        b2 = -sn * 0.5f;
+    } else {
+        b0 = (1.0f - cs) * 0.5f;
+        b1 = 1.0f - cs;
+        b2 = (1.0f - cs) * 0.5f;
+    }
+
+    float inv_a0 = 1.0f / a0;
+    c.b0 = b0 * inv_a0;
+    c.b1 = b1 * inv_a0;
+    c.b2 = b2 * inv_a0;
+    c.a1 = a1 * inv_a0;
+    c.a2 = a2 * inv_a0;
+    return c;
+}
+
+static inline float process_biquad_sample(float in,
+                                          const FilterCoefficients &c,
+                                          float &z1,
+                                          float &z2) {
+    if (c.bypass) return in;
+    float out = c.b0 * in + z1;
+    z1 = c.b1 * in - c.a1 * out + z2;
+    z2 = c.b2 * in - c.a2 * out;
+    return out;
+}
+
 }  // namespace
 
 void ppf_default_params(ppf_params_t *params) {
@@ -231,6 +321,9 @@ void ppf_default_params(ppf_params_t *params) {
     params->timbre = 0.5f;
     params->morph = 0.5f;
     params->fm_amount = 0.0f;
+    params->filter_mode = PPF_FILTER_LP;
+    params->filter_cutoff = 1.0f;
+    params->filter_resonance = 0.0f;
 
     params->lpg_decay = 0.35f;
     params->lpg_color = 0.55f;
@@ -274,6 +367,7 @@ void ppf_default_params(ppf_params_t *params) {
 struct ppf_engine_t::Impl {
     std::array<VoiceState, PPF_MAX_VOICES> voices;
     GlobalModState global_mod;
+    FilterState filter_state;
     uint32_t rng_state;
     uint32_t age_counter;
 
@@ -309,6 +403,10 @@ struct ppf_engine_t::Impl {
         global_mod.lfo_rand_hold = rand_bipolar(rng_state);
         global_mod.lfo_rand_a = rand_bipolar(rng_state);
         global_mod.lfo_rand_b = rand_bipolar(rng_state);
+        filter_state.z1_l = 0.0f;
+        filter_state.z2_l = 0.0f;
+        filter_state.z1_r = 0.0f;
+        filter_state.z2_r = 0.0f;
     }
 
     int active_voice_budget(const ppf_params_t &params) const {
@@ -402,6 +500,9 @@ void ppf_engine_t::set_params(const ppf_params_t &params) {
     params_.timbre = clampf(params_.timbre, 0.0f, 1.0f);
     params_.morph = clampf(params_.morph, 0.0f, 1.0f);
     params_.fm_amount = clampf(params_.fm_amount, 0.0f, 1.0f);
+    params_.filter_mode = clampi(params_.filter_mode, 0, 2);
+    params_.filter_cutoff = clampf(params_.filter_cutoff, 0.0f, 1.0f);
+    params_.filter_resonance = clampf(params_.filter_resonance, 0.0f, 1.0f);
     params_.lpg_decay = clampf(params_.lpg_decay, 0.0f, 1.0f);
     params_.lpg_color = clampf(params_.lpg_color, 0.0f, 1.0f);
     params_.polyphony = clampi(params_.polyphony, 1, PPF_MAX_VOICES);
@@ -531,6 +632,11 @@ void ppf_engine_t::render(float *out_l, float *out_r, int frames) {
     }
 
     int budget = impl_->active_voice_budget(params_);
+    FilterCoefficients filter_coeffs = make_filter_coefficients(
+        params_.filter_mode,
+        params_.filter_cutoff,
+        params_.filter_resonance);
+
     float lfo_rate = clampf(params_.lfo_rate, 0.01f, 40.0f);
     if (params_.lfo_sync) {
         lfo_rate = quantize_sync_rate_hz(lfo_rate, kSyncReferenceBpm);
@@ -741,6 +847,16 @@ void ppf_engine_t::render(float *out_l, float *out_r, int frames) {
 
         for (int j = 0; j < chunk; ++j) {
             int idx = frame_pos + j;
+            out_l[idx] = process_biquad_sample(
+                out_l[idx],
+                filter_coeffs,
+                impl_->filter_state.z1_l,
+                impl_->filter_state.z2_l);
+            out_r[idx] = process_biquad_sample(
+                out_r[idx],
+                filter_coeffs,
+                impl_->filter_state.z1_r,
+                impl_->filter_state.z2_r);
             out_l[idx] = tanhf(out_l[idx]);
             out_r[idx] = tanhf(out_r[idx]);
         }

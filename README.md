@@ -8,6 +8,7 @@
 - Direct top-level Plaits params (`Pitch`, `Harmonics`, `Timbre`, `Morph`, `FM Amount`) with separate modulation submenus
 - Full destination-based modulation sources:
   - LFO, Envelope, Cycling Envelope, Random, Velocity, Poly Aftertouch
+- Global multimode post filter submenu (`LP/BP/HP`, `Cutoff`, `Resonance`)
 - Voice controls: mono/poly/mono legato, polyphony, unison, detune, spread, glide
 - Top-level LPG controls (`Decay`, `Color`) plus top-level `Pitch`, with dedicated `Pitch Mod` and `Color Mod`
 
