@@ -61,7 +61,7 @@ int main() {
     void *inst = api->create_instance("src", "{}");
     if (!inst) fail("create_instance failed");
 
-    api->set_param(inst, "model", "fm_2op");
+    api->set_param(inst, "model", "FM 2-Op");
     api->set_param(inst, "harmonics", "0.6");
     api->set_param(inst, "timbre", "0.4");
     api->set_param(inst, "morph", "0.7");
@@ -84,7 +84,7 @@ int main() {
     if (api->get_param(inst, "model", model_buf, (int)sizeof(model_buf)) < 0) {
         fail("get_param(model) failed");
     }
-    if (strcmp(model_buf, "fm_2op") != 0) {
+    if (strcmp(model_buf, "FM 2-Op") != 0) {
         fail("model value mismatch after set/get");
     }
 
@@ -210,6 +210,26 @@ int main() {
         fail("lfo_rate should accept and return synced fraction labels");
     }
 
+    api->set_param(inst, "random_sync", "on");
+    api->set_param(inst, "random_rate", "0");
+    char random_rate_buf[32];
+    memset(random_rate_buf, 0, sizeof(random_rate_buf));
+    if (api->get_param(inst, "random_rate", random_rate_buf, (int)sizeof(random_rate_buf)) < 0) {
+        fail("get_param(random_rate) failed");
+    }
+    if (strcmp(random_rate_buf, "16 bars") != 0) {
+        fail("random_rate should show synced division label when sync is on");
+    }
+
+    api->set_param(inst, "random_rate", "1/64");
+    memset(random_rate_buf, 0, sizeof(random_rate_buf));
+    if (api->get_param(inst, "random_rate", random_rate_buf, (int)sizeof(random_rate_buf)) < 0) {
+        fail("get_param(random_rate) failed after enum text set");
+    }
+    if (strcmp(random_rate_buf, "1/64") != 0) {
+        fail("random_rate should accept and return synced fraction labels");
+    }
+
     char hierarchy_buf[32768];
     memset(hierarchy_buf, 0, sizeof(hierarchy_buf));
     if (api->get_param(inst, "ui_hierarchy", hierarchy_buf, (int)sizeof(hierarchy_buf)) <= 0) {
@@ -254,7 +274,7 @@ int main() {
     if (api->get_param(inst_from_state, "model", restored_model_buf, (int)sizeof(restored_model_buf)) < 0) {
         fail("get_param(model) failed on restored instance");
     }
-    if (strcmp(restored_model_buf, "fm_2op") != 0) {
+    if (strcmp(restored_model_buf, "FM 2-Op") != 0) {
         fail("state restore via json_defaults should restore model");
     }
 

@@ -55,8 +55,13 @@ if model_meta.get("type") != "enum":
 model_opts = model_meta.get("options", [])
 if not isinstance(model_opts, list) or len(model_opts) != 24:
     fail("model enum must define exactly 24 engine names")
-if "fm_2op" not in model_opts:
-    fail("model enum options missing expected engine name 'fm_2op'")
+if "FM 2-Op" not in model_opts:
+    fail("model enum options missing expected engine name 'FM 2-Op'")
+for opt in model_opts:
+    if not isinstance(opt, str):
+        fail("model enum options must be strings")
+    if "_" in opt:
+        fail("model enum options should use clean labels without underscores")
 
 assign_target_opts = chain_params.get("assign1_target", {}).get("options", [])
 if len(assign_target_opts) != 10:
