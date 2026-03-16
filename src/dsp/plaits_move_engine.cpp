@@ -45,6 +45,10 @@ static inline float rand_unipolar(uint32_t &state) {
     return ((float)(xorshift32(state) & 0x00FFFFFFu) / 16777216.0f);
 }
 
+static inline float semitones_to_ratio(float semitones) {
+    return powf(2.0f, semitones * (1.0f / 12.0f));
+}
+
 static inline float curve_pow(float x, float curve) {
     x = clampf(x, 0.0f, 1.0f);
     float c = clampf(curve, 0.1f, 4.0f);
@@ -138,13 +142,26 @@ static const float kSyncRateBars[] = {
 
 constexpr int kSyncRateCount = (int)(sizeof(kSyncRateBars) / sizeof(kSyncRateBars[0]));
 
-static int note_release_samples(const ppf_params_t &params) {
-    /* Allow long tails at high LPG decay; rely on voice stealing for budget control. */
-    float decay = clampf(params.lpg_decay, 0.0f, 1.0f);
-    float release_ms = 20.0f + powf(decay, 3.0f) * 12000.0f;
+static int note_release_samples_from_decay(float decay_value) {
+    /* Follow Plaits' short_decay scaling and add safety headroom to avoid premature cutoff. */
+    float decay = clampf(decay_value, 0.0f, 1.0f);
+    float short_decay = (200.0f * (float)kChunkFrames) / (float)PPF_SAMPLE_RATE *
+                        semitones_to_ratio(-96.0f * decay);
+    float coeff = clampf(short_decay, 1e-6f, 0.999f);
+    float blocks_to_minus_80db = logf(1e-4f) / logf(1.0f - coeff);
+    if (!isfinite(blocks_to_minus_80db) || blocks_to_minus_80db < 1.0f) {
+        blocks_to_minus_80db = 1.0f;
+    }
+    float release_ms = (blocks_to_minus_80db * (float)kChunkFrames * 1000.0f) / (float)PPF_SAMPLE_RATE;
+    release_ms = release_ms * 1.35f + 750.0f;
+    release_ms = clampf(release_ms, 30.0f, 30000.0f);
     int release_samples = (int)(release_ms * 0.001f * (float)PPF_SAMPLE_RATE);
     if (release_samples < kChunkFrames) release_samples = kChunkFrames;
     return release_samples;
+}
+
+static int note_release_samples(const ppf_params_t &params) {
+    return note_release_samples_from_decay(params.lpg_decay);
 }
 
 static float sync_rate_hz_from_index(int index, float bpm) {
@@ -214,6 +231,7 @@ struct VoiceState {
     int trigger_blocks;
     int release_samples_remaining;
     int release_samples_total;
+    float last_lpg_decay;
 
     int env_stage;
     float env_value;
@@ -404,6 +422,7 @@ struct ppf_engine_t::Impl {
             v.trigger_blocks = 0;
             v.release_samples_remaining = 0;
             v.release_samples_total = 0;
+            v.last_lpg_decay = 0.35f;
             v.allocator.Init(v.ram, sizeof(v.ram));
             v.synth.Init(&v.allocator);
             v.env_stage = ENV_OFF;
@@ -468,12 +487,12 @@ struct ppf_engine_t::Impl {
         if (v.cycle_dir == 0) v.cycle_dir = 1;
     }
 
-    void release_matching_note(int note, int budget, const ppf_params_t &params) {
-        int release_samples = note_release_samples(params);
+    void release_matching_note(int note, int budget) {
         for (int i = 0; i < budget; ++i) {
             VoiceState &v = voices[i];
             if (!v.active) continue;
             if (v.note == note) {
+                int release_samples = note_release_samples_from_decay(v.last_lpg_decay);
                 v.gate = false;
                 v.release_samples_remaining = release_samples;
                 v.release_samples_total = release_samples;
@@ -575,6 +594,7 @@ void ppf_engine_t::note_on(int note, float velocity) {
                 pan *= params_.spread;
             }
             impl_->trigger_voice(impl_->voices[i], note, velocity, detune, pan, retrig);
+            impl_->voices[i].last_lpg_decay = params_.lpg_decay;
         }
         for (int i = unison; i < budget; ++i) {
             impl_->voices[i].active = false;
@@ -631,11 +651,12 @@ void ppf_engine_t::note_on(int note, float velocity) {
             pan *= params_.spread;
         }
         impl_->trigger_voice(impl_->voices[idx], note, velocity, detune, pan, params_.env_retrig != 0);
+        impl_->voices[idx].last_lpg_decay = params_.lpg_decay;
     }
 }
 
 void ppf_engine_t::note_off(int note) {
-    impl_->release_matching_note(note, impl_->active_voice_budget(params_), params_);
+    impl_->release_matching_note(note, impl_->active_voice_budget(params_));
 }
 
 void ppf_engine_t::poly_aftertouch(int note, float pressure) {
@@ -650,8 +671,8 @@ void ppf_engine_t::poly_aftertouch(int note, float pressure) {
 
 void ppf_engine_t::all_notes_off() {
     int budget = impl_->active_voice_budget(params_);
-    int release_samples = note_release_samples(params_);
     for (int i = 0; i < budget; ++i) {
+        int release_samples = note_release_samples_from_decay(impl_->voices[i].last_lpg_decay);
         impl_->voices[i].gate = false;
         impl_->voices[i].release_samples_remaining = release_samples;
         impl_->voices[i].release_samples_total = release_samples;
@@ -878,6 +899,7 @@ void ppf_engine_t::render(float *out_l, float *out_r, int frames) {
             lpg_color = clampf(lpg_color, 0.0f, 1.0f);
             volume = clampf(volume, 0.0f, 2.0f);
             pan = clampf(pan, -1.0f, 1.0f);
+            v.last_lpg_decay = lpg;
 
             plaits::Patch patch{};
             patch.note = v.note_current + pitch;

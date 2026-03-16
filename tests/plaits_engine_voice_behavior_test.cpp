@@ -122,7 +122,7 @@ int main() {
     }
 
     engine.note_off(60);
-    render_some(engine, 32768, 128);
+    render_some(engine, PPF_SAMPLE_RATE * 8, 128);
     if (engine.debug_active_voice_count() != 0) {
         fail("note_off should fully release voice");
     }
@@ -154,7 +154,7 @@ int main() {
     if (held_engine.debug_active_voice_count() == 0) {
         fail("max LPG decay should keep release active beyond 2 seconds");
     }
-    render_some(held_engine, PPF_SAMPLE_RATE * 12, 128);
+    render_some(held_engine, PPF_SAMPLE_RATE * 24, 128);
     if (held_engine.debug_active_voice_count() != 0) {
         fail("held note release should eventually finish");
     }
@@ -177,6 +177,24 @@ int main() {
     }
     if (release_samples >= PPF_SAMPLE_RATE) {
         fail("release timing should follow LPG decay, not ADSR release time");
+    }
+
+    ppf_engine_t modulated_release_engine;
+    ppf_params_t modulated_release_params;
+    ppf_default_params(&modulated_release_params);
+    modulated_release_params.voice_mode = 1;  // poly
+    modulated_release_params.polyphony = 1;
+    modulated_release_params.unison = 1;
+    modulated_release_params.lpg_decay = 0.0f;
+    modulated_release_params.assign1_target = 3;  // PPF_ASSIGN_LPG_DECAY
+    modulated_release_params.assign1_mod.velocity = 1.0f;
+    modulated_release_engine.set_params(modulated_release_params);
+    modulated_release_engine.note_on(62, 1.0f);
+    render_some(modulated_release_engine, 512, 64);
+    modulated_release_engine.note_off(62);
+    int modulated_release_samples = modulated_release_engine.debug_release_samples_total_for_note(62);
+    if (modulated_release_samples < PPF_SAMPLE_RATE * 8) {
+        fail("release timing should track effective LPG decay, including assign modulation");
     }
 
     params.model = 0;
