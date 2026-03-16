@@ -254,24 +254,24 @@ int main() {
     }
 
     api->set_param(inst, "lfo_sync", "off");
-    api->set_param(inst, "lfo_rate", "0");
+    api->set_param(inst, "lfo_rate", "3.5");
     char lfo_rate_buf[32];
     memset(lfo_rate_buf, 0, sizeof(lfo_rate_buf));
     if (api->get_param(inst, "lfo_rate", lfo_rate_buf, (int)sizeof(lfo_rate_buf)) < 0) {
         fail("get_param(lfo_rate) failed");
     }
-    if (strcmp(lfo_rate_buf, "16 bars") != 0) {
-        fail("lfo_rate should return division labels even when sync is off");
+    if (strcmp(lfo_rate_buf, "3.5") != 0) {
+        fail("lfo_rate should return free numeric Hz value when sync is off");
     }
 
     api->set_param(inst, "lfo_sync", "on");
-    api->set_param(inst, "lfo_rate", "0");
+    api->set_param(inst, "lfo_rate", "3.5");
     memset(lfo_rate_buf, 0, sizeof(lfo_rate_buf));
     if (api->get_param(inst, "lfo_rate", lfo_rate_buf, (int)sizeof(lfo_rate_buf)) < 0) {
         fail("get_param(lfo_rate) failed");
     }
-    if (strcmp(lfo_rate_buf, "16 bars") != 0) {
-        fail("lfo_rate should show synced division label when sync is on");
+    if (strcmp(lfo_rate_buf, "1/8") != 0) {
+        fail("lfo_rate should quantize to synced division label when sync is on");
     }
 
     api->set_param(inst, "lfo_rate", "1/64");
@@ -283,15 +283,25 @@ int main() {
         fail("lfo_rate should accept and return synced fraction labels");
     }
 
-    api->set_param(inst, "random_sync", "on");
-    api->set_param(inst, "random_rate", "0");
+    api->set_param(inst, "random_sync", "off");
+    api->set_param(inst, "random_rate", "5.25");
     char random_rate_buf[32];
     memset(random_rate_buf, 0, sizeof(random_rate_buf));
     if (api->get_param(inst, "random_rate", random_rate_buf, (int)sizeof(random_rate_buf)) < 0) {
         fail("get_param(random_rate) failed");
     }
-    if (strcmp(random_rate_buf, "16 bars") != 0) {
-        fail("random_rate should show synced division label when sync is on");
+    if (strcmp(random_rate_buf, "5.25") != 0) {
+        fail("random_rate should return free numeric Hz value when sync is off");
+    }
+
+    api->set_param(inst, "random_sync", "on");
+    api->set_param(inst, "random_rate", "5.25");
+    memset(random_rate_buf, 0, sizeof(random_rate_buf));
+    if (api->get_param(inst, "random_rate", random_rate_buf, (int)sizeof(random_rate_buf)) < 0) {
+        fail("get_param(random_rate) failed");
+    }
+    if (strcmp(random_rate_buf, "1/8") != 0) {
+        fail("random_rate should quantize to synced division label when sync is on");
     }
 
     api->set_param(inst, "random_rate", "1/64");
