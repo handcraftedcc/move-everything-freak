@@ -1223,6 +1223,9 @@ static void set_param(void *instance, const char *key, const char *val) {
 static int get_param(void *instance, const char *key, char *buf, int buf_len) {
     freak_instance_t *inst = (freak_instance_t *)instance;
     if (!inst || !key || !buf || buf_len <= 0) return -1;
+    if (strcmp(key, "name") == 0) {
+        return snprintf(buf, buf_len, "MrHyde");
+    }
     if (strcmp(key, "state") == 0) {
         return build_state_json(inst, buf, buf_len);
     }

@@ -61,6 +61,15 @@ int main() {
     void *inst = api->create_instance("src", "{}");
     if (!inst) fail("create_instance failed");
 
+    char plugin_name_buf[32];
+    memset(plugin_name_buf, 0, sizeof(plugin_name_buf));
+    if (api->get_param(inst, "name", plugin_name_buf, (int)sizeof(plugin_name_buf)) < 0) {
+        fail("get_param(name) failed");
+    }
+    if (strcmp(plugin_name_buf, "MrHyde") != 0) {
+        fail("plugin name should be MrHyde");
+    }
+
     api->set_param(inst, "model", "FM 2-Op");
     api->set_param(inst, "harmonics", "0.6");
     api->set_param(inst, "timbre", "0.4");
