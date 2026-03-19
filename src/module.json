@@ -1,7 +1,7 @@
 {
   "id": "freak",
-  "name": "Freak",
-  "abbrev": "FRK",
+  "name": "MrHyde",
+  "abbrev": "MRH",
   "version": "0.0.1",
   "description": "MicroFreak-inspired Plaits sound generator for Move Everything",
   "author": "move-anything contributors",
@@ -19,7 +19,7 @@
     "ui_hierarchy": {
       "levels": {
         "root": {
-          "name": "Freak",
+          "name": "MrHyde",
           "knobs": [
             "model",
             "harmonics",
