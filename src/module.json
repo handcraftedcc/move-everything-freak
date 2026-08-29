@@ -442,6 +442,7 @@
       },
       {
         "key": "aux_mix",
+        "short_name": "Aux",
         "name": "Aux Mix",
         "type": "float",
         "min": 0.0,
@@ -449,6 +450,7 @@
       },
       {
         "key": "lpg_decay",
+        "short_name": "Decay",
         "name": "LPG Decay",
         "type": "float",
         "min": 0.0,
@@ -456,6 +458,7 @@
       },
       {
         "key": "lpg_color",
+        "short_name": "Color",
         "name": "LPG Color",
         "type": "float",
         "min": 0.0,
@@ -522,6 +525,7 @@
       },
       {
         "key": "assign1_mod_cycle_env_amt",
+        "short_name": "Cycle",
         "name": "Cycle Env",
         "type": "float",
         "min": -1.0,
@@ -543,6 +547,7 @@
       },
       {
         "key": "assign1_mod_poly_aftertouch_amt",
+        "short_name": "Aftertouch",
         "name": "Poly Aftertouch",
         "type": "float",
         "min": -1.0,
@@ -585,6 +590,7 @@
       },
       {
         "key": "assign2_mod_cycle_env_amt",
+        "short_name": "Cycle",
         "name": "Cycle Env",
         "type": "float",
         "min": -1.0,
@@ -606,6 +612,7 @@
       },
       {
         "key": "assign2_mod_poly_aftertouch_amt",
+        "short_name": "Aftertouch",
         "name": "Poly Aftertouch",
         "type": "float",
         "min": -1.0,
@@ -629,6 +636,7 @@
       },
       {
         "key": "pitch_mod_cycle_env_amt",
+        "short_name": "Cycle",
         "name": "Cycle Env",
         "type": "float",
         "min": -48.0,
@@ -653,6 +661,7 @@
       },
       {
         "key": "pitch_mod_poly_aftertouch_amt",
+        "short_name": "Aftertouch",
         "name": "Poly Aftertouch",
         "type": "float",
         "min": -48.0,
@@ -675,6 +684,7 @@
       },
       {
         "key": "harmonics_mod_cycle_env_amt",
+        "short_name": "Cycle",
         "name": "Cycle Env",
         "type": "float",
         "min": -1.0,
@@ -696,6 +706,7 @@
       },
       {
         "key": "harmonics_mod_poly_aftertouch_amt",
+        "short_name": "Aftertouch",
         "name": "Poly Aftertouch",
         "type": "float",
         "min": -1.0,
@@ -717,6 +728,7 @@
       },
       {
         "key": "timbre_mod_cycle_env_amt",
+        "short_name": "Cycle",
         "name": "Cycle Env",
         "type": "float",
         "min": -1.0,
@@ -738,6 +750,7 @@
       },
       {
         "key": "timbre_mod_poly_aftertouch_amt",
+        "short_name": "Aftertouch",
         "name": "Poly Aftertouch",
         "type": "float",
         "min": -1.0,
@@ -759,6 +772,7 @@
       },
       {
         "key": "cutoff_mod_cycle_env_amt",
+        "short_name": "Cycle",
         "name": "Cycle Env",
         "type": "float",
         "min": -1.0,
@@ -780,6 +794,7 @@
       },
       {
         "key": "cutoff_mod_poly_aftertouch_amt",
+        "short_name": "Aftertouch",
         "name": "Poly Aftertouch",
         "type": "float",
         "min": -1.0,
@@ -995,6 +1010,7 @@
       },
       {
         "key": "voice_mode",
+        "short_name": "Mode",
         "name": "Voice Mode",
         "type": "enum",
         "options": [
